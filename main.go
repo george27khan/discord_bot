@@ -1,78 +1,119 @@
 package main
 
 import (
-	"fmt"
-	owm "github.com/briandowns/openweathermap"
+	"context"
+	trnsl "discord_bot/src/translator"
+	w "discord_bot/src/weather"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 )
 
 var (
-	botToken string
-	owmKey   string
+	commandList map[string]string = map[string]string{
+		"!help":           "Get descriptions of available commands.",
+		"!weather":        "Get city weather information by city name.\nSample: !weather Almaty",
+		"!translate":      "Translate text to target language.\nSample: !translate ru Hello world!\n!translate russian Hello world!",
+		"!translate_lang": "Show available languages for translate.",
+	}
 )
 
+// loadEnv load env for project
 func loadEnv() {
 	// loads DB settings from .env into the system
 	if err := godotenv.Load("./bot.env"); err != nil {
-		log.Print("No .env file found.", err)
+		log.Print("ERROR. No .env file found.", err)
 	}
-	botToken = os.Getenv("TOKEN")
-	owmKey = os.Getenv("OWM_KEY")
 }
 
-func Run() {
-	// create a session
+func getCommandDescr() *discordgo.MessageSend {
+	var fields []*discordgo.MessageEmbedField
+
+	for key, val := range commandList {
+		fields = append(fields, &discordgo.MessageEmbedField{Name: key, Value: val, Inline: false})
+	}
+	data := &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{
+			{
+				Type:   discordgo.EmbedTypeRich,
+				Title:  "Commands description:",
+				Fields: fields,
+			},
+		},
+	}
+	return data
+}
+
+// startBot start discord bot
+func startBot() {
+	botToken := os.Getenv("TOKEN")
 	discord, err := discordgo.New("Bot " + botToken)
 	if err != nil {
-		log.Print("Create bot err.", err)
+		log.Print("ERROR. Create bot err.", err)
 	}
-
-	// add a event handler
-	discord.AddHandler(newMessage)
-
-	// open session
+	discord.AddHandler(mainHandler)
 	discord.Open()
-	defer discord.Close() // close session, after function termination
+	defer discord.Close()
 
-	// keep bot running untill there is NO os interruption (ctrl + C)
-	fmt.Println("Bot running....")
+	log.Print("Bot running....")
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
-
 }
 
-func newMessage(discord *discordgo.Session, message *discordgo.MessageCreate) {
+// mainHandler catch user command for exec
+func mainHandler(discord *discordgo.Session, message *discordgo.MessageCreate) {
+	ctx := context.Background()
+
+	//ignor bot messages
 	if message.Author.ID == discord.State.User.ID {
 		return
 	}
-	// respond to user message if it contains `!help` or `!bye`
+
 	switch {
-	case strings.Contains(message.Content, "weather"):
-		discord.ChannelMessageSend(message.ChannelID, "I can help with that! Use '!zip <zip code>'")
-	case strings.Contains(message.Content, "bot"):
-		discord.ChannelMessageSend(message.ChannelID, "Hi there!")
+	case strings.Contains(message.Content, "!help"):
+		helpInfo := getCommandDescr()
+		discord.ChannelMessageSendComplex(message.ChannelID, helpInfo)
+	case strings.Contains(message.Content, "!translate_lang"):
+		res := trnsl.GetSupportedLang(ctx)
+		discord.ChannelMessageSend(message.ChannelID, res)
+	case strings.Contains(message.Content, "!translate"):
+		re := regexp.MustCompile("!translate (?P<lang>[A-Za-zА-яа-я]+) (?P<text>.+)")
+		res := re.FindStringSubmatch(message.Content)
+		if len(res) > 2 {
+			langTo := res[re.SubexpIndex("lang")]
+			trnsl.IsSupportedLang(ctx, langTo)
+			text := res[re.SubexpIndex("text")]
+			trnsl.IsSupportedLang(ctx, langTo)
+			translation, err := trnsl.Translate(ctx, text, langTo)
+			if err != nil {
+				discord.ChannelMessageSend(message.ChannelID, err.Error())
+			} else {
+				discord.ChannelMessageSend(message.ChannelID, translation)
+			}
+		} else {
+			discord.ChannelMessageSend(message.ChannelID, "Сommand useded incorrectly!")
+		}
 
+	case strings.Contains(message.Content, "!weather"):
+		city, ok := strings.CutPrefix(message.Content, "!weather ")
+		if !ok {
+			discord.ChannelMessageSend(message.ChannelID, "Укажите в команде название города")
+		}
+		if currentWeather, err := w.GetByLocName(city); err != nil {
+			discord.ChannelMessageSend(message.ChannelID, "Ошибка при получении данных о погоде!")
+		} else {
+			discord.ChannelMessageSendComplex(message.ChannelID, currentWeather)
+		}
 	}
-
 }
 
-// https://api.openweathermap.org/data/3.0/onecall?lat=33.44&lon=-94.04&exclude=hourly,daily&appid=72289e1ca528512ed0f2ac0400c0b9d3
 func main() {
 	loadEnv()
-
-	w, err := owm.NewCurrent("F", "ru", owmKey) // fahrenheit (imperial) with Russian output
-	if err != nil {
-		log.Fatalln(err)
-	}
-	w.CurrentByName("Almaty")
-	fmt.Println(w)
-	Run()
-	fmt.Println(botToken)
-
+	startBot()
 }
