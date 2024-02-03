@@ -42,9 +42,10 @@
 
 - !translate
 
-
     !translate ru Hello world!
-    Привет, мир!
 
+    Привет, мир!
+---
     !translate Russian Hello world!
+
     Привет, мир!
