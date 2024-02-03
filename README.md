@@ -8,9 +8,9 @@
 Бот со всеми компонентами можно развернуть в Docker через docker-compose up.  
 Для корректной работы с API необходимо прописать в файле bot.env ключи
    
-    DISCORD_TOKEN - Discord bot key
-    OWM_KEY - OpenWeatherMap API key
-    GOOGLE_KEY - Google API key
+    DISCORD_TOKEN="Discord bot key"
+    OWM_KEY="OpenWeatherMap API key"
+    GOOGLE_KEY="Google API key"
 
 Ссылка для [добавления бота](https://discord.com/api/oauth2/authorize?client_id=1202914737793278022&permissions=8&scope=bot)  
 Примеры:
