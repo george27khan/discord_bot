@@ -13,14 +13,12 @@ import (
 	"strings"
 )
 
-var (
-	commandList map[string]string = map[string]string{
-		"!help":           "Get descriptions of available commands.",
-		"!weather":        "Get city weather information by city name.\nSample: !weather Almaty",
-		"!translate":      "Translate text to target language.\nSample: !translate ru Hello world!\n!translate russian Hello world!",
-		"!translate_lang": "Show available languages for translate.",
-	}
-)
+var commandList = map[string]string{
+	"!help":           "Get descriptions of available commands.",
+	"!weather":        "Get city weather information by city name.\nSample: !weather Almaty",
+	"!translate":      "Translate text to target language.\nSample: !translate ru Hello world!\n!translate russian Hello world!",
+	"!translate_lang": "Show available languages for translate.",
+}
 
 // loadEnv load env for project
 func loadEnv() {
@@ -30,6 +28,7 @@ func loadEnv() {
 	}
 }
 
+// getCommandDescr return info about bot commands
 func getCommandDescr() *discordgo.MessageSend {
 	var fields []*discordgo.MessageEmbedField
 
@@ -50,7 +49,7 @@ func getCommandDescr() *discordgo.MessageSend {
 
 // startBot start discord bot
 func startBot() {
-	botToken := os.Getenv("TOKEN")
+	botToken := os.Getenv("DISCORD_TOKEN")
 	discord, err := discordgo.New("Bot " + botToken)
 	if err != nil {
 		log.Print("ERROR. Create bot err.", err)
@@ -70,7 +69,7 @@ func startBot() {
 func mainHandler(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	ctx := context.Background()
 
-	//ignor bot messages
+	//ignore bot messages
 	if message.Author.ID == discord.State.User.ID {
 		return
 	}
@@ -79,9 +78,11 @@ func mainHandler(discord *discordgo.Session, message *discordgo.MessageCreate) {
 	case strings.Contains(message.Content, "!help"):
 		helpInfo := getCommandDescr()
 		discord.ChannelMessageSendComplex(message.ChannelID, helpInfo)
+
 	case strings.Contains(message.Content, "!translate_lang"):
 		res := trnsl.GetSupportedLang(ctx)
 		discord.ChannelMessageSend(message.ChannelID, res)
+
 	case strings.Contains(message.Content, "!translate"):
 		re := regexp.MustCompile("!translate (?P<lang>[A-Za-zА-яа-я]+) (?P<text>.+)")
 		res := re.FindStringSubmatch(message.Content)
@@ -97,18 +98,19 @@ func mainHandler(discord *discordgo.Session, message *discordgo.MessageCreate) {
 				discord.ChannelMessageSend(message.ChannelID, translation)
 			}
 		} else {
-			discord.ChannelMessageSend(message.ChannelID, "Сommand useded incorrectly!")
+			discord.ChannelMessageSend(message.ChannelID, "Сommand used incorrectly!")
 		}
 
 	case strings.Contains(message.Content, "!weather"):
 		city, ok := strings.CutPrefix(message.Content, "!weather ")
 		if !ok {
-			discord.ChannelMessageSend(message.ChannelID, "Укажите в команде название города")
-		}
-		if currentWeather, err := w.GetByLocName(city); err != nil {
-			discord.ChannelMessageSend(message.ChannelID, "Ошибка при получении данных о погоде!")
+			discord.ChannelMessageSend(message.ChannelID, "Сommand used incorrectly!")
 		} else {
-			discord.ChannelMessageSendComplex(message.ChannelID, currentWeather)
+			if currentWeather, err := w.GetByLocName(city); err != nil {
+				discord.ChannelMessageSend(message.ChannelID, err.Error())
+			} else {
+				discord.ChannelMessageSendComplex(message.ChannelID, currentWeather)
+			}
 		}
 	}
 }
