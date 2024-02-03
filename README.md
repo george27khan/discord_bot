@@ -15,7 +15,7 @@
 Ссылка для [добавления бота](https://discord.com/api/oauth2/authorize?client_id=1202914737793278022&permissions=8&scope=bot)  
 Примеры:
 - !weather
----
+```
     !weather Almaty
     Погода в Алматы
     Условия
@@ -26,7 +26,8 @@
     73%
     Ветер
     3.00 м/c
----
+```
+```
     !weather Москва
     Погода в Москва
     Условия
@@ -37,11 +38,13 @@
     96%
     Ветер
     3.14 м/c
-
+```
 - !translate
----
+```
     !translate ru Hello world!
     Привет, мир!
----
+```
+```
     !translate Russian Hello world!
     Привет, мир!
+```
